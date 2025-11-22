@@ -1,11 +1,23 @@
 'use client';
 
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import * as d3 from 'd3';
 import { RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { fetchGraphData } from '@/services/ragService';
+import { Network, FileText, Move, ZoomIn, Hand, ZoomOut, RefreshCw } from 'lucide-react';
+import { useTheme } from 'next-themes';
+import { fetchGraphData } from '@/services/services/ragService';
 import type { D3Node, D3Edge } from '@/types/graph';
+import { 
+  APP_CONFIG, 
+  UI_MESSAGES, 
+  PILLAR_COLORS,
+  PILLAR_COLORS_SVG,
+  D3_SIMULATION,
+  D3_ZOOM,
+  ANIMATION_DURATION,
+  UI_DIMENSIONS,
+} from '@/constants';
 
 // Colors for the graph
 const GRAPH_COLORS = {
@@ -21,35 +33,26 @@ const GRAPH_COLORS = {
   border: '#27272A',    // Borders
 };
 
-// Color palette for different categories
+// Colores para las categorías del RAG
 const CATEGORY_COLORS = [
-  '#8B5CF6', // Violet
-  '#3B82F6', // Blue
-  '#10B981', // Green
-  '#F59E0B', // Amber
-  '#EF4444', // Red
-  '#EC4899', // Pink
-  '#8B5CF6', // Purple
-  '#06B6D4', // Cyan
-  '#84CC16', // Lime
-  '#F97316', // Orange
-  '#6366F1', // Indigo
-  '#14B8A6', // Teal
+  '#8B5CF6', '#3B82F6', '#10B981', '#F59E0B', 
+  '#EF4444', '#EC4899', '#8B5CF6', '#06B6D4', 
+  '#84CC16', '#F97316', '#6366F1', '#14B8A6',
 ];
 
-export interface NewNodeData {
-  node: {
-    id: string;
-    label: string;
-    type: string;
-    category?: string;
-    created_at?: string;
-  };
-  edges: {
-    source: string;
-    target: string;
-    weight: number;
-  }[];
+interface GraphNode extends d3.SimulationNodeDatum {
+  id: string;
+  title: string;
+  tags: string[];
+  pillar: string;
+  type?: 'note' | 'memory' | 'rag';
+  category?: string;
+  x?: number;
+  y?: number;
+  vx?: number;
+  vy?: number;
+  fx?: number | null;
+  fy?: number | null;
 }
 
 interface GraphViewProps {
@@ -60,14 +63,15 @@ interface GraphViewProps {
 const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [graphData, setGraphData] = useState<{ nodes: D3Node[], edges: D3Edge[] }>({ nodes: [], edges: [] });
-  const [stats, setStats] = useState({ nodeCount: 0, edgeCount: 0 });
+  const simulationRef = useRef<d3.Simulation<GraphNode, GraphLink> | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('nodes');
+  const [mounted, setMounted] = useState(false);
+  const [isLoadingRAG, setIsLoadingRAG] = useState(false);
+  const [ragError, setRagError] = useState<string | null>(null);
+  const [ragNodes, setRagNodes] = useState<D3Node[]>([]);
   const [categoryColorMap, setCategoryColorMap] = useState<Map<string, string>>(new Map());
-  const simulationRef = useRef<d3.Simulation<D3Node, D3Edge> | null>(null);
-  const [newNodeId, setNewNodeId] = useState<string | null>(null);
 
   // Update dimensions on resize
   useEffect(() => {
@@ -85,14 +89,16 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Fetch graph data from API
-  const loadGraphData = useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
+  const isDarkMode = mounted && (resolvedTheme === 'dark' || theme === 'dark');
+
+  // Cargar datos del RAG API
+  const loadRAGData = useCallback(async () => {
+    setIsLoadingRAG(true);
+    setRagError(null);
     try {
       const data = await fetchGraphData(500);
       
-      // Build category to color mapping
+      // Construir mapa de colores por categoría
       const categories = new Set<string>();
       data.nodes.forEach(node => {
         if (node.category) {
@@ -106,12 +112,102 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
       });
       setCategoryColorMap(colorMap);
 
-      // Transform API data to D3 format
-      const nodes: D3Node[] = data.nodes.map(node => ({
+      // Transformar nodos del API al formato GraphNode
+      const transformedNodes: D3Node[] = data.nodes.map(node => ({
         ...node,
-        color: getNodeColor(node.type, node.category, colorMap),
-        size: getNodeSize(node.type),
+        color: node.category && colorMap.has(node.category) 
+          ? colorMap.get(node.category) 
+          : '#8B5CF6',
+        size: node.type === 'memory' ? 8 : 10,
       }));
+
+      setRagNodes(transformedNodes);
+    } catch (err) {
+      console.error('Error loading RAG graph data:', err);
+      setRagError('No se pudo cargar datos del grafo RAG. Verifica que el API esté activo.');
+    } finally {
+      setIsLoadingRAG(false);
+    }
+  }, []);
+
+  // Cargar datos RAG al montar el componente
+  useEffect(() => {
+    loadRAGData();
+  }, [loadRAGData]);
+
+  // Generar nodos y conexiones basadas en tags, referencias y datos RAG
+  const { nodes, links } = useMemo(() => {
+    // Usar dimensiones por defecto para la distribución inicial
+    // Se ajustarán dinámicamente cuando se monte el componente
+    const defaultWidth = APP_CONFIG.GRAPH_VIEWBOX_WIDTH;
+    const defaultHeight = APP_CONFIG.GRAPH_VIEWBOX_HEIGHT;
+    const centerX = defaultWidth / 2;
+    const centerY = defaultHeight / 2;
+    const totalNodes = notes.length + ragNodes.length;
+    const radius = Math.min(defaultWidth, defaultHeight) * 0.3; // 30% del tamaño menor
+    
+    // Nodos locales del store
+    const localNodes: GraphNode[] = notes.map((note, index) => {
+      // Distribución circular inicial para mejor visualización
+      const angle = (index / totalNodes) * D3_SIMULATION.FULL_CIRCLE_RADIANS;
+      const x = Math.cos(angle) * radius + centerX;
+      const y = Math.sin(angle) * radius + centerY;
+
+      return {
+        id: note.id,
+        x,
+        y,
+        title: note.title,
+        tags: note.tags,
+        pillar: note.pillar,
+        type: 'note',
+      };
+    });
+
+    // Nodos del RAG API
+    const ragGraphNodes: GraphNode[] = ragNodes.map((node, index) => {
+      const adjustedIndex = notes.length + index;
+      const angle = (adjustedIndex / totalNodes) * D3_SIMULATION.FULL_CIRCLE_RADIANS;
+      const x = Math.cos(angle) * radius + centerX;
+      const y = Math.sin(angle) * radius + centerY;
+
+      return {
+        id: `rag-${node.id}`,
+        x,
+        y,
+        title: node.label,
+        tags: [],
+        pillar: 'default',
+        type: 'rag',
+        category: node.category,
+      };
+    });
+
+    const graphNodes = [...localNodes, ...ragGraphNodes];
+    const graphLinks: GraphLink[] = [];
+    
+    // Crear conexiones basadas en tags compartidos (solo para notas locales)
+    notes.forEach((note, i) => {
+      notes.slice(i + 1).forEach((otherNote) => {
+        const sharedTags = note.tags.filter((tag) =>
+          otherNote.tags.includes(tag),
+        );
+        if (sharedTags.length > 0) {
+          graphLinks.push({
+            source: note.id,
+            target: otherNote.id,
+          });
+        }
+      });
+
+      const colorMap = new Map<string, string>();
+      Array.from(categories).forEach((category, index) => {
+        colorMap.set(category, CATEGORY_COLORS[index % CATEGORY_COLORS.length]);
+      });
+      setCategoryColorMap(colorMap);
+
+    return { nodes: graphNodes, links: graphLinks };
+  }, [notes, ragNodes]);
 
       const edges: D3Edge[] = data.edges.map(edge => ({
         source: edge.source,
@@ -209,50 +305,42 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
     const centerX = newNode && newNode.x ? newNode.x : width / 2;
     const centerY = newNode && newNode.y ? newNode.y : height / 2;
 
-    // Create force simulation
-    const simulation = d3.forceSimulation<D3Node>(graphData.nodes)
-      .force('link', d3.forceLink<D3Node, D3Edge>(graphData.edges)
-        .id(d => d.id)
-        .distance(d => 100 / (d.weight + 0.1)) // Closer for higher weights
-        .strength(d => d.strength || 0.5)
-      )
-      .force('charge', d3.forceManyBody()
-        .strength(-300)
-        .distanceMax(400)
-      )
-      .force('center', d3.forceCenter(centerX, centerY))
-      .force('collision', d3.forceCollide<D3Node>().radius(d => {
-        // Give new node more space to avoid overlapping
-        const baseRadius = d.size || 8;
-        const isNewNode = d.id === newNodeId;
-        return (isNewNode ? baseRadius * 3 : baseRadius) + 15;
-      }));
-
-    simulationRef.current = simulation;
-
-    // Draw edges
-    const link = g.append('g')
-      .selectAll('line')
-      .data(graphData.edges)
-      .join('line')
-      .attr('stroke', d => d.weight > 0.5 ? GRAPH_COLORS.edge : GRAPH_COLORS.edgeWeak)
-      .attr('stroke-opacity', d => 0.3 + (d.weight * 0.5))
-      .attr('stroke-width', d => 1 + (d.weight * 3));
-
-    // Draw nodes
-    console.log('Rendering graph with newNodeId:', newNodeId);
-    console.log('Nodes:', graphData.nodes.map(n => n.id));
-    
-    const node = g.append('g')
-      .selectAll('circle')
-      .data(graphData.nodes)
-      .join('circle')
-      .attr('r', d => {
-        // Make new node significantly larger
-        const isNew = d.id === newNodeId;
-        console.log(`Node ${d.id}: isNew=${isNew}, newNodeId=${newNodeId}`);
-        if (isNew) {
-          return (d.size || 8) * 3;
+    // Dibujar nodos con colores mejorados para dark mode
+    const nodeElements = nodeGroup
+      .selectAll<SVGCircleElement, GraphNode>('circle')
+      .data(nodes)
+      .enter()
+      .append('circle')
+      .attr('r', (d) => d.type === 'rag' ? 8 : APP_CONFIG.GRAPH_NODE_RADIUS)
+      .attr('fill', (d) => {
+        // Si es un nodo del RAG, usar color de categoría
+        if (d.type === 'rag' && d.category) {
+          return categoryColorMap.get(d.category) || '#8B5CF6';
+        }
+        // Si es una nota local, usar colores de pillar
+        const pillar = d.pillar as keyof typeof PILLAR_COLORS_SVG;
+        const colors = PILLAR_COLORS_SVG[pillar] ?? PILLAR_COLORS_SVG.default;
+        return isDarkMode ? colors.dark : colors.light;
+      })
+      .attr('stroke', (d) => {
+        if (d.type === 'rag') {
+          return '#fff';
+        }
+        const pillar = d.pillar as keyof typeof PILLAR_COLORS_SVG;
+        const colors = PILLAR_COLORS_SVG[pillar] ?? PILLAR_COLORS_SVG.default;
+        return isDarkMode ? colors.dark : colors.light;
+      })
+      .attr('stroke-width', (d) => d.type === 'rag' ? '2' : (isDarkMode ? '2' : '1'))
+      .attr('class', (d) => {
+        const cursorClass = interactionMode === 'nodes' ? 'cursor-move' : 'cursor-pointer';
+        return `${cursorClass} transition-all hover:opacity-80`;
+      })
+      .style('filter', isDarkMode ? 'drop-shadow(0 0 4px rgba(255, 255, 255, 0.3))' : 'none')
+      .call(nodeDrag)
+      .on('click', (event, d) => {
+        event.stopPropagation();
+        if (interactionMode === 'nodes' && d.type !== 'rag') {
+          handleNodeClick(d.id);
         }
         return d.size || 8;
       })
@@ -399,7 +487,7 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
     return () => {
       simulation.stop();
     };
-  }, [graphData, dimensions]);
+  }, [nodes, links, interactionMode, isDarkMode, categoryColorMap]);
 
 
   const handleRefresh = () => {
@@ -562,12 +650,82 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
         </h3>
         <div className="space-y-2 text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: GRAPH_COLORS.memory }} />
-            <span style={{ color: GRAPH_COLORS.textMuted }}>Nodes: {stats.nodeCount}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-0.5" style={{ backgroundColor: GRAPH_COLORS.edge }} />
-            <span style={{ color: GRAPH_COLORS.textMuted }}>Connections: {stats.edgeCount}</span>
+            {/* Botón de refresh */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadRAGData}
+              disabled={isLoadingRAG}
+              title="Recargar datos del grafo RAG"
+              className="gap-1.5"
+            >
+              <RefreshCw className={`h-4 w-4 ${isLoadingRAG ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">
+                {isLoadingRAG ? 'Cargando...' : 'Actualizar RAG'}
+              </span>
+            </Button>
+
+            <div className="flex rounded-lg border bg-card p-1">
+              <Button
+                variant={interactionMode === 'nodes' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setInteractionMode('nodes')}
+                title="Modo: Arrastrar nodos"
+                className="gap-1.5"
+              >
+                <Move className="h-4 w-4" />
+                <span className="hidden sm:inline">Nodos</span>
+              </Button>
+              <Button
+                variant={interactionMode === 'pan' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setInteractionMode('pan')}
+                title="Modo: Mover canvas"
+                className="gap-1.5"
+              >
+                <Hand className="h-4 w-4" />
+                <span className="hidden sm:inline">Mover</span>
+              </Button>
+              <Button
+                variant={interactionMode === 'zoom' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setInteractionMode('zoom')}
+                title="Modo: Zoom y navegación"
+                className="gap-1.5"
+              >
+                <ZoomIn className="h-4 w-4" />
+                <span className="hidden sm:inline">Zoom</span>
+              </Button>
+            </div>
+            
+            {/* Controles de zoom */}
+            <div className="flex items-center gap-1 rounded-lg border bg-card p-1">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleZoomOut}
+                title="Zoom out"
+              >
+                <ZoomOut className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleZoomIn}
+                title="Zoom in"
+              >
+                <ZoomIn className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleResetZoom}
+                title="Resetear zoom y posición"
+                className="gap-1.5"
+              >
+                <span className="text-xs">Reset</span>
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -598,14 +756,118 @@ const GraphView: React.FC<GraphViewProps> = ({ onNewNode, newNodeToAdd }) => {
         </p>
       </div>
 
-      {/* SVG Canvas */}
-      <svg
-        ref={svgRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        className="w-full h-full"
-        style={{ cursor: 'grab' }}
-      />
+      <div ref={containerRef} className="relative flex-1 overflow-hidden bg-muted/30 dark:bg-muted/20 min-h-0">
+        <svg
+          ref={svgRef}
+          className="h-full w-full"
+          viewBox={`0 0 ${APP_CONFIG.GRAPH_VIEWBOX_WIDTH} ${APP_CONFIG.GRAPH_VIEWBOX_HEIGHT}`}
+          preserveAspectRatio="xMidYMid meet"
+        />
+
+        {/* Legend - Ajustado para no salirse de la pantalla */}
+        <div className="absolute bottom-4 left-4 max-h-[calc(100%-8rem)] overflow-y-auto rounded-lg border bg-card p-3 shadow-sm">
+          <h3 className="mb-2 text-sm font-semibold">Leyenda</h3>
+          
+          {/* Notas locales */}
+          <div className="space-y-1 text-xs mb-3">
+            <p className="text-xs font-medium text-muted-foreground mb-1">Notas Locales</p>
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full ${PILLAR_COLORS.career}`} />
+              <span>Desarrollo de Carrera</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full ${PILLAR_COLORS.social}`} />
+              <span>Social</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`h-3 w-3 rounded-full ${PILLAR_COLORS.hobby}`} />
+              <span>Hobby</span>
+            </div>
+          </div>
+
+          {/* Categorías RAG */}
+          {categoryColorMap.size > 0 && (
+            <div className="pt-3 border-t">
+              <p className="text-xs font-medium text-muted-foreground mb-2">
+                Memorias RAG ({ragNodes.length})
+              </p>
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {Array.from(categoryColorMap.entries()).map(([category, color]) => (
+                  <div key={category} className="flex items-center gap-2">
+                    <div 
+                      className="h-2.5 w-2.5 rounded-full shrink-0" 
+                      style={{ backgroundColor: color }} 
+                    />
+                    <span className="text-xs truncate">
+                      {category || 'Sin categoría'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mostrar error si existe */}
+          {ragError && (
+            <div className="mt-3 pt-3 border-t">
+              <p className="text-xs text-destructive">{ragError}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Node list - Ajustado para no salirse de la pantalla */}
+        <div className="absolute right-4 top-4 max-h-[calc(100%-2rem)] w-64 overflow-y-auto rounded-lg border bg-card p-4 shadow-sm">
+          <h3 className="mb-2 text-sm font-semibold">
+            Nodos ({nodes.length})
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            {notes.length} locales · {ragNodes.length} RAG
+          </p>
+          <div className="space-y-1">
+            {nodes.filter(n => n.type !== 'rag').map((node) => (
+              <Button
+                key={node.id}
+                variant="ghost"
+                className="w-full justify-start text-xs h-auto py-1.5"
+                onClick={() => handleNodeClick(node.id)}
+              >
+                <FileText className="mr-2 h-3 w-3" />
+                <span className="truncate">{node.title}</span>
+              </Button>
+            ))}
+            {nodes.filter(n => n.type === 'rag').length > 0 && (
+              <>
+                <div className="my-2 border-t pt-2">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">
+                    Memorias RAG
+                  </p>
+                </div>
+                {nodes.filter(n => n.type === 'rag').slice(0, 10).map((node) => (
+                  <div
+                    key={node.id}
+                    className="flex items-start gap-2 px-2 py-1.5 text-xs text-muted-foreground"
+                  >
+                    <div 
+                      className="h-2 w-2 rounded-full shrink-0 mt-1" 
+                      style={{ 
+                        backgroundColor: node.category && categoryColorMap.has(node.category)
+                          ? categoryColorMap.get(node.category)
+                          : '#8B5CF6'
+                      }} 
+                    />
+                    <span className="truncate">{node.title}</span>
+                  </div>
+                ))}
+                {nodes.filter(n => n.type === 'rag').length > 10 && (
+                  <p className="text-xs text-muted-foreground px-2 py-1">
+                    +{nodes.filter(n => n.type === 'rag').length - 10} más...
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

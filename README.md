@@ -1,74 +1,59 @@
 # Platanus Hack 25
 
-Sistema de gestión de conocimiento personal (PKM) con RAG y transcripción de audio.
+## Descripción
 
-## Inicio Rápido
-
-```bash
-# 1. Configurar variables de entorno
-cp .env.example .env
-# Edita .env y agrega tu OPENAI_API_KEY
-
-# 2. Levantar todos los servicios
-make up
-```
-
-## Comandos Disponibles
-
-```bash
-make up        # Levantar todos los servicios
-make down      # Detener todos los servicios
-make restart   # Reiniciar todos los servicios
-make logs      # Ver logs en tiempo real
-make build     # Construir las imágenes
-make clean     # Limpiar contenedores y volúmenes
-```
-
-## Servicios
-
-Una vez levantados los contenedores, los servicios estarán disponibles en:
-
-- Frontend Web App: http://localhost:3001
-- Frontend Public Web: http://localhost:3000
-- RAG Memory API: http://localhost:8000
-- Speech-to-Text API: http://localhost:8002
-- PostgreSQL (pgvector): localhost:5432
+Este proyecto es parte del Platanus Hack 25, un evento de desarrollo colaborativo.
 
 ## Estructura del Proyecto
 
 ```
 .
-├── apis/       # APIs y servicios backend
-├── apps/       # Aplicaciones frontend
-├── data/       # Migraciones de base de datos
-├── docs/       # Documentación
-└── infra/      # Configuración de infraestructura
+├── apis/       # APIs y servicios externos
+├── apps/       # Aplicaciones frontend/backend
+├── data/       # Datos y migraciones
+├── docs/       # Documentación del proyecto
+├── infra/      # Infraestructura y configuración
+└── services/   # Servicios compartidos
 ```
 
-## Requisitos
+## Comenzando
 
-- Docker y Docker Compose
-- OpenAI API Key
+### Prerrequisitos
 
-## Desarrollo Manual
-
-Si prefieres no usar Docker:
-
-### Requisitos
 - Node.js 20+
-- Python 3.11+
-- PostgreSQL 16+ con extensión pgvector
+- npm o yarn
 
 ### Instalación
 
 ```bash
-# Frontend
-cd apps/fe-webapp
-npm install
+# Clonar el repositorio
+git clone [url-del-repositorio]
 
-# Backend
-cd apis/rag_memory
-pip install -r requirements.txt
+# Instalar dependencias
+npm install
 ```
 
-Ver [DOCKER.md](./DOCKER.md) para más detalles sobre la configuración de Docker.
+### Desarrollo
+
+```bash
+# Iniciar en modo desarrollo
+npm run dev
+
+# Ejecutar pruebas
+npm test
+
+# Construir para producción
+npm run build
+```
+
+## Contribución
+
+Por favor lee [CONTRIBUTION.md](./CONTRIBUTION.md) para detalles sobre nuestro código de conducta y el proceso para enviarnos pull requests.
+
+## Equipo
+
+Desarrollado durante Platanus Hack 25 :).
+
+## Licencia
+
+Este proyecto está licenciado bajo [especificar licencia] - ver el archivo [LICENSE](./LICENSE) para detalles.

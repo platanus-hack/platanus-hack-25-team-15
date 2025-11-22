@@ -287,4 +287,3 @@ logging.getLogger("services.speech_to_text_api").setLevel(logging.INFO)
 - Default category is "audio_transcription" if not specified
 - API timeout is set to 300 seconds for large files
 - Temporary files are created with proper file extensions based on filename
-

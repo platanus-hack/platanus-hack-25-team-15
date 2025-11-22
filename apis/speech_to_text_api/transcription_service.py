@@ -237,7 +237,6 @@ class TranscriptionService:
                 - transcription: The transcription result from ElevenLabs
                 - memory: The created Memory object
                 - filename: The original filename
-                - graph_node: The node data in graph format for visualization
                 
         Raises:
             ValueError: If base64 data is invalid
@@ -269,14 +268,10 @@ class TranscriptionService:
         
         logger.info(f"Transcription stored in RAG memory with ID: {memory['id']}")
         
-        # Get the graph node data for the newly created memory
-        graph_node = await self._get_memory_graph_node(memory['id'])
-        
         return {
             "transcription": transcription_result,
             "memory": memory,
             "filename": filename,
-            "graph_node": graph_node,
         }
 
     async def transcribe_from_url(
@@ -440,58 +435,3 @@ class TranscriptionService:
             except httpx.HTTPError as e:
                 logger.error(f"Error searching memories in RAG service: {e}")
                 return []
-    
-    async def _get_memory_graph_node(self, memory_id: int) -> Dict[str, Any]:
-        """Get memory graph node data from RAG service via HTTP."""
-        async with httpx.AsyncClient(timeout=config.rag_service_timeout) as client:
-            try:
-                # Get the memory details
-                memory_response = await client.get(f"{self.rag_service_url}/memories/{memory_id}")
-                memory_response.raise_for_status()
-                memory = memory_response.json()
-                
-                # Get the neighbors (edges) for this memory
-                neighbors_response = await client.get(
-                    f"{self.rag_service_url}/memories/{memory_id}/neighbors",
-                    params={"limit": 10}
-                )
-                neighbors_response.raise_for_status()
-                neighbors = neighbors_response.json()
-                
-                # Format as graph node with edges
-                text = memory.get("text", "")
-                label = (text[:80] + "...") if len(text) > 80 else text
-                
-                graph_node = {
-                    "node": {
-                        "id": str(memory_id),
-                        "label": label,
-                        "type": "memory",
-                        "category": memory.get("category"),
-                        "created_at": memory.get("created_at"),
-                    },
-                    "edges": [
-                        {
-                            "source": str(memory_id),
-                            "target": str(neighbor["memory_id"]),
-                            "weight": neighbor["similarity_score"],
-                        }
-                        for neighbor in neighbors
-                    ]
-                }
-                
-                return graph_node
-                
-            except httpx.HTTPError as e:
-                logger.error(f"Error getting memory graph node from RAG service: {e}")
-                # Return a basic node structure even if we can't get neighbors
-                return {
-                    "node": {
-                        "id": str(memory_id),
-                        "label": "New memory",
-                        "type": "memory",
-                        "category": "audio_transcription",
-                    },
-                    "edges": []
-                }
-

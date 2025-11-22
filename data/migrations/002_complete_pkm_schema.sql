@@ -529,8 +529,9 @@ CREATE INDEX IF NOT EXISTS idx_notes_project_updated_at
     ON notes (project_id, updated_at DESC) WHERE project_id IS NOT NULL;
 
 -- Índice para búsqueda de notas recientes
-CREATE INDEX IF NOT EXISTS idx_notes_user_recent
-    ON notes (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notes_user_recent 
+    ON notes (user_id, created_at DESC) 
+    WHERE created_at > NOW() - INTERVAL '30 days';
 
 -- ============================================================================
 -- COMENTARIOS FINALES

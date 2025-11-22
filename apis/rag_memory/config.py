@@ -65,4 +65,3 @@ class RagConfig:
 
 # Global config instance
 config = RagConfig()
-

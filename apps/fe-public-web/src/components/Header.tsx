@@ -9,8 +9,8 @@ export function Header() {
   const navItems = [
     { label: 'Características', href: '#features' },
     { label: 'Cómo funciona', href: '#how-it-works' },
-    { label: 'Chat', href: '#chat' },
-    { label: 'Contacto', href: '#contact' },
+    { label: 'Testimonios', href: '#testimonials' },
+    { label: 'Precios', href: '#pricing' },
   ];
 
   return (
@@ -40,20 +40,9 @@ export function Header() {
 
           {/* CTA and Mobile Menu */}
           <div className="flex items-center gap-4">
-            {/* FOMO Registration */}
-            <div className="hidden sm:flex items-center gap-3">
-              <div className="text-right">
-                <div className="text-xs text-[#999999]">Acceso Exclusivo</div>
-                <div className="text-sm font-medium text-blue-400">Próximamente</div>
-              </div>
-              <button className="px-4 py-2 border border-blue-500/30 text-blue-400 rounded-lg text-sm font-medium 
-                               hover:bg-blue-500/10 hover:border-blue-500/50 transition-all duration-300 
-                               relative overflow-hidden group">
-                <span className="relative z-10">Unirse</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/0 via-blue-500/20 to-blue-500/0 
-                             transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700" />
-              </button>
-            </div>
+            <a href="#" className="hidden sm:inline-block btn-primary text-sm">
+              Comenzar Gratis
+            </a>
 
             {/* Mobile Menu Button */}
             <button
@@ -78,19 +67,9 @@ export function Header() {
                 {item.label}
               </a>
             ))}
-            {/* FOMO Registration Mobile */}
-            <div className="mt-4 p-4 rounded-lg bg-[#1A1A1A]/50 border border-blue-500/20">
-              <div className="text-center mb-3">
-                <div className="text-xs text-[#999999] mb-1">Acceso Exclusivo</div>
-                <div className="text-lg font-medium text-blue-400">Próximamente</div>
-                <div className="text-xs text-[#666666] mt-1">Sé de los primeros en acceder</div>
-              </div>
-              <button className="w-full px-4 py-2 bg-blue-500/10 border border-blue-500/30 text-blue-400 
-                               rounded-lg text-sm font-medium hover:bg-blue-500/20 hover:border-blue-500/50 
-                               transition-all duration-300">
-                Unirse a Lista de Espera
-              </button>
-            </div>
+            <a href="#" className="block btn-primary text-center w-full mt-4">
+              Comenzar Gratis
+            </a>
           </div>
         )}
       </div>

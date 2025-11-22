@@ -32,4 +32,3 @@ export interface GraphData {
   nodes: D3Node[];
   edges: D3Edge[];
 }
-
