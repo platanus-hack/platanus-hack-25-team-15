@@ -103,13 +103,22 @@ export function Features() {
 
         {/* CTA */}
         <div className="text-center mt-16">
-          <button className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r 
+          <button className="group relative inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r 
                            from-blue-600 to-blue-700 text-white rounded-xl font-semibold 
                            hover:from-blue-700 hover:to-blue-800 transition-all duration-300 
                            transform hover:scale-105 shadow-lg hover:shadow-blue-500/25">
             <span>Explora todas las características</span>
             <Brain size={20} className="group-hover:rotate-12 transition-transform" />
+            <div className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full font-medium animate-pulse">
+              Beta
+            </div>
           </button>
+          <div className="mt-3 text-sm text-[#666666]">
+            <span className="inline-flex items-center gap-1">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              Acceso anticipado limitado
+            </span>
+          </div>
         </div>
       </div>
     </section>

@@ -254,6 +254,9 @@ export function HowItWorks() {
               Unirse a Lista de Espera
               <Zap size={20} className="group-hover:scale-110 transition-transform" />
             </span>
+            <div className="absolute -top-2 -right-2 px-2 py-1 text-xs bg-orange-500 text-white rounded-full font-medium animate-pulse">
+              Beta
+            </div>
             
             {/* Neural Glow */}
             <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 
