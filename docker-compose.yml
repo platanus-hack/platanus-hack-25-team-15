@@ -69,7 +69,10 @@ services:
       dockerfile: Dockerfile
     environment:
       - NEXT_PUBLIC_APP_URL=http://localhost:3000
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      # RAG API URL for Next.js API route (server-side). Use service hostname.
+      - NEXT_PUBLIC_RAG_API_URL=http://rag-memory:8000
+      # Expose OpenAI key to Next.js API route (server-side)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     ports:
       - "3000:3000"
     volumes:
