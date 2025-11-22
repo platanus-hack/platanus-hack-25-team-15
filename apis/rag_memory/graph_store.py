@@ -26,7 +26,7 @@ class MemoryGraphStore:
         Load the entire graph from the database.
         Should be called once during initialization.
         """
-        from .models import Memory, MemoryEdge
+        from models import Memory, MemoryEdge
         
         logger.info("Loading graph from database...")
         

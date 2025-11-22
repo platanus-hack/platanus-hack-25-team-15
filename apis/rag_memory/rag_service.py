@@ -7,12 +7,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, func, delete
 from sqlalchemy.exc import SQLAlchemyError
 
-from .database import SessionLocal, Base, engine
-from .models import Memory, MemoryChunk, MemoryEdge
-from .embeddings import EmbeddingGenerator
-from .graph_store import MemoryGraphStore
-from .chunking import TextChunker
-from .config import config
+from database import SessionLocal, Base, engine
+from models import Memory, MemoryChunk, MemoryEdge
+from embeddings import EmbeddingGenerator
+from graph_store import MemoryGraphStore
+from chunking import TextChunker
+from config import config
 
 logger = logging.getLogger(__name__)
 

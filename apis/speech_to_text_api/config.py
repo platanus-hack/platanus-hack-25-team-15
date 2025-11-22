@@ -3,6 +3,10 @@ Configuration settings for Speech to Text Service.
 """
 import os
 from dataclasses import dataclass
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @dataclass
@@ -19,6 +23,10 @@ class SpeechToTextConfig:
     # Transcription settings
     language_code: str = "es"  # Default to Spanish
     timestamps_granularity: str = "none"  # Options: none, word, character
+    
+    # RAG Memory Service settings
+    rag_service_url: str = os.getenv("RAG_SERVICE_URL", "http://localhost:8000")
+    rag_service_timeout: float = 30.0  # Timeout for RAG service requests
     
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")

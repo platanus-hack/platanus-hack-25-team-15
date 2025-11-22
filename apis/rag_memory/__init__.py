@@ -3,12 +3,12 @@ RAG Memory Service - A production-ready RAG system with graph-based relationship
 Now with chunk-based embeddings for improved semantic search.
 """
 
-from .rag_service import RagMemoryService
-from .embeddings import EmbeddingGenerator
-from .graph_store import MemoryGraphStore
-from .models import Memory, MemoryChunk, MemoryEdge
-from .config import RagConfig, config
-from .chunking import TextChunker
+from rag_service import RagMemoryService
+from embeddings import EmbeddingGenerator
+from graph_store import MemoryGraphStore
+from models import Memory, MemoryChunk, MemoryEdge
+from config import RagConfig, config
+from chunking import TextChunker
 
 __all__ = [
     "RagMemoryService",

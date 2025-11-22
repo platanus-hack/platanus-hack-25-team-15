@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, Text, DateTime, Float, ForeignKey, String, Index
 from sqlalchemy.sql import func
 from pgvector.sqlalchemy import Vector
-from .database import Base
+from database import Base
 
 
 class Memory(Base):
